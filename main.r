@@ -13,7 +13,7 @@ y_agg <- data_list$y_agg
 miss <- data_list$miss
 miss_agg <- data_list$miss_agg
 
-num_iter <- 200000
+num_iter <- 10000
 a <- 0
 R <- 1
 tau <- rep(0.01, k)

@@ -134,5 +134,6 @@ get_qcew_data <- function(series) {
   miss_agg <- y_agg == 0
   y[miss] <- NA
   y_agg[miss_agg] <- NA
-  return(list(y = y, y_agg = y_agg, miss = miss, miss_agg = miss_agg, k = k, T = T))
+  return(list(y = y, y_agg = y_agg,
+    miss = miss, miss_agg = miss_agg, k = k, T = T))
 }
