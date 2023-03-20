@@ -33,22 +33,20 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     ##   sigma2[j] <- zapsmall(drawIGpost(y[j, ] - theta[j, ]))
     ##   W[j] <- zapsmall(drawIGpost(theta[j, -1] - theta[j, -T]))
     ## }
-    alpha_star <- alpha + (T - 1)/2
-    beta_star <- c()
     for (j in 1:k) {
-      beta_star[j] <-
+      alpha_star_j <- alpha[j] + (T - 1)/2
+      beta_star_j <-
         zapsmall(beta[j] +
                    sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / sigma2[j]))
+      xi[j] <- zapsmall(1/rgamma(1, alpha_star_j, beta_star_j))
     }
-    xi <- zapsmall(1/rgamma(k, alpha_star, beta_star))
-    tau_star <- tau + (2*T - 1)/2
-    kappa_star <- c()
     for (j in 1:k) {
-      kappa_star[j] <-
+      tau_star_j <- tau[j] + (2*T - 1)/2
+      kappa_star_j <-
         zapsmall(kappa[j] + sum((y[j, ] - theta[j, ])^2) +
                    sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / xi[j]))
+      sigma2[j] <- zapsmall(1/rgamma(1, tau_star_j, kappa_star_j))
     }
-    sigma2 <- zapsmall(1/rgamma(k, tau_star, kappa_star))
 
     ## step 3 sample z
     y_trans <- matrix(0, num_years, 4*k)
