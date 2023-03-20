@@ -2,9 +2,12 @@ library(Matrix)
 library(MASS)
 library(dlm)
 
+drawIGpost <- function(x, a=0, b=0) {
+  return(1/rgamma(1, a+length(x)/2, b+sum(x^2)/2))
+}
+
 bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
-                 a, R, tau, kappa, alpha, beta,
-                 positive_threshold = 1e-12) {
+                 a, R, tau, kappa, alpha, beta) {
   k <- dim(y)[1]
   T <- dim(y)[2]
   num_years <- T / 4
@@ -13,6 +16,7 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
   theta <- matrix(0, k, 4*num_years)
   sigma2 <- apply(y, 1, var)
   xi <- replicate(k, 1/rgamma(1, alpha, beta))
+  ## W <- replicate(k, 1/rgamma(1, tau, kappa))
 
   for (iter in 1:num_iter) {
     ## step 1 sample the latent process
@@ -25,20 +29,26 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     }
 
     ## step 2 sample the hyperparameters
+    ## for (j in 1:k) {
+    ##   sigma2[j] <- zapsmall(drawIGpost(y[j, ] - theta[j, ]))
+    ##   W[j] <- zapsmall(drawIGpost(theta[j, -1] - theta[j, -T]))
+    ## }
     alpha_star <- alpha + (T - 1)/2
     beta_star <- c()
     for (j in 1:k) {
-      beta_star[j] <- beta[j] +
-        sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / sigma2[j])
+      beta_star[j] <-
+        zapsmall(beta[j] +
+                   sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / sigma2[j]))
     }
-    xi <- 1/rgamma(k, alpha_star, beta_star)
+    xi <- zapsmall(1/rgamma(k, alpha_star, beta_star))
     tau_star <- tau + (2*T - 1)/2
     kappa_star <- c()
     for (j in 1:k) {
-      kappa_star[j] <- kappa[j] + sum((y[j, ] - theta[j, ])^2) +
-        sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / xi[j])
+      kappa_star[j] <-
+        zapsmall(kappa[j] + sum((y[j, ] - theta[j, ])^2) +
+                   sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / xi[j]))
     }
-    sigma2 <- 1/rgamma(k, tau_star, kappa_star)
+    sigma2 <- zapsmall(1/rgamma(k, tau_star, kappa_star))
 
     ## step 3 sample z
     y_trans <- matrix(0, num_years, 4*k)
@@ -67,8 +77,15 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
         SIGMA_mo <- SIGMA[miss_z[t_prime, ], !miss_z[t_prime, ]]
         SIGMA_om <- SIGMA[!miss_z[t_prime, ], miss_z[t_prime, ]]
         SIGMA_oo <- SIGMA[!miss_z[t_prime, ], !miss_z[t_prime, ]]
-        SIGMA_oo_psedoinv <- zapsmall(ginv(SIGMA_oo))
-        gamma_tm <- mu_tm - SIGMA_mo %*% SIGMA_oo_psedoinv %*%
+        SIGMA_oo_decomp <- eigen(SIGMA_oo)
+        P_SIGMA_oo <- zapsmall(SIGMA_oo_decomp$vectors)
+        D_SIGMA_oo <- zapsmall(SIGMA_oo_decomp$values)
+        D_SIGMA_oo_star_idx <- D_SIGMA_oo > 0
+        D_SIGMA_oo_star_inv <- matrix(0, sum(D_SIGMA_oo_star_idx), sum(D_SIGMA_oo_star_idx))
+        diag(D_SIGMA_oo_star_inv) <- zapsmall(1 / D_SIGMA_oo[D_SIGMA_oo_star_idx])
+        P_SIGMA_oo_star <- P_SIGMA_oo[, D_SIGMA_oo_star_idx]
+        SIGMA_oo_psedoinv <- zapsmall(P_SIGMA_oo_star %*% D_SIGMA_oo_star_inv %*% t(P_SIGMA_oo_star))
+        gamma_tm <- mu_tm + SIGMA_mo %*% SIGMA_oo_psedoinv %*%
           (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]])
         Omega <- SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om
         gamma_tm <- zapsmall(gamma_tm)
@@ -76,13 +93,15 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
         Omega_decomp <- eigen(Omega)
         P_omega <- zapsmall(Omega_decomp$vectors)
         D_omega <- zapsmall(Omega_decomp$values)
-        D_omega_star_idx <- D_omega > positive_threshold
-        D_omega_star_sqrt <- matrix(0, sum(D_omega_star_idx), sum(D_omega_star_idx))
+        D_omega_star_idx <- D_omega > 0
+        D_omega_star_num_pos <- sum(D_omega_star_idx)
+        if (D_omega_star_num_pos == 0) next
+        D_omega_star_sqrt <- matrix(0, D_omega_star_num_pos, D_omega_star_num_pos)
         diag(D_omega_star_sqrt) <- zapsmall(sqrt(D_omega[D_omega_star_idx]))
         P_omega_star <- P_omega[, D_omega_star_idx]
-        Omega_rank <- rankMatrix(Omega)[1]
-        u <- mvrnorm(1, rep(0, sum(D_omega_star_idx)), diag(sum(D_omega_star_idx))) #TODO
-        z[t_prime, ][miss_z[t_prime, ]] <- gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u
+        u <- mvrnorm(1, rep(0, D_omega_star_num_pos), diag(D_omega_star_num_pos))
+        z[t_prime, ][miss_z[t_prime, ]] <-
+          zapsmall(gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u)
       }
     }
 
