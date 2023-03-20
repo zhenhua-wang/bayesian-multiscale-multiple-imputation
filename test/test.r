@@ -24,7 +24,7 @@ for (i in 1:n.reps) {
   cat(i,"\r")
   for (j in 1:k) {
     # Sample states
-    mod <- dlmModPoly(1, dV = V[j], dW = W[j], m0 = rnorm(1, 0, 1))
+    mod <- dlmModPoly(1, dV = V[j], dW = W[j])
     filt <- dlmFilter(y[j, ], mod)
     theta <- dlmBSample(filt)[-1]
     # Sample V and W
