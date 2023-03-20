@@ -2,12 +2,10 @@ library(Matrix)
 library(MASS)
 library(dlm)
 
-drawIGpost <- function(x, a=0, b=0) {
-  return(1/rgamma(1, a+length(x)/2, b+sum(x^2)/2))
-}
-
 bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta) {
+  op <- options(digits = 12)
+  on.exit(options(op))
   k <- dim(y)[1]
   T <- dim(y)[2]
   num_years <- T / 4
