@@ -3,7 +3,7 @@ library(MASS)
 library(dlm)
 source("./bmmi.r")
 
-load("./data/series3")
+load("./data/series2")
 data_list <- get_qcew_data(series2)
 k <- data_list$k
 T <- data_list$T
