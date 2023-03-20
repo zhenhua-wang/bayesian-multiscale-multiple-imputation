@@ -8,36 +8,34 @@ y <- data_list$y
 for (j in 1:k) {
   y[j, ][is.na(y[j, ])] <- mean(y[j, ], na.rm = TRUE)
 }
-## y <- Nile
 
 drawIGpost <- function(x, a=0, b=0) {
   return(1/rgamma(1, a+length(x)/2, b+sum(x^2)/2))
 }
 
-num_iters <- 3000
-tau <- 0.01
-kappa <- 0.01
-alpha <- 3
-beta <- 0.1
-theta <- array(0, dim = c(num_iters, dim(y)[1], dim(y)[2]))
-sigma2 <- replicate(3, 1/rgamma(1, alpha, beta))
-xi <- replicate(3, 1/rgamma(1, tau, kappa))
-for (i in 1:num_iters) {
+n.reps <- 10000
+V.reps <- c()
+W.reps <- c()
+theta.reps <- array(0, dim = c(n.reps, j, dim(y)[2]))
+V <- apply(y, 1, var)
+W <- replicate(3, 1/rgamma(1, 0.01, 0.01))
+
+for (i in 1:n.reps) {
   cat(i,"\r")
   for (j in 1:k) {
     # Sample states
-    mod <- dlmModPoly(1, dV = sigma2[j], dW = xi[j], rnorm(1, 0, 10^10))
+    mod <- dlmModPoly(1, dV = V[j], dW = W[j])
     filt <- dlmFilter(y[j, ], mod)
-    theta_curr <- dlmBSample(filt)
-    theta[i, j, ] <- theta_curr[-1]
+    theta <- dlmBSample(filt)[-1]
     # Sample V and W
-    alpha_star <- alpha + (T - 1)/2
-    beta_star <- beta +
-      sum(0.5 * (theta_curr[-1] - theta_curr[-T])^2 / sigma2[j])
-    xi[j] <- 1/rgamma(1, alpha_star, beta_star)
-    tau_star <- tau + (2*T - 1)/2
-    kappa_star <- kappa + sum((y[j, ] - theta_curr[-1])^2) +
-      sum(0.5 * (theta_curr[-1] - theta_curr[-T])^2 / xi[j])
-    sigma2[j] <- 1/rgamma(1, tau_star, kappa_star)
+    V[j] <- drawIGpost(y[j, ]-theta)
+    W[j] <- drawIGpost(theta[-1]-theta[-length(y[, ])])
+    # Save iterations
+    V.reps[i] <- V
+    W.reps[i] <- W
+    theta.reps[i, j, ] <- theta
   }
 }
+
+plot(1:n.reps, V.reps)
+plot(1:n.reps, W.reps)
