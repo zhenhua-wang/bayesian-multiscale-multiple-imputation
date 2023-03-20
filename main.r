@@ -13,13 +13,14 @@ y_agg <- data_list$y_agg
 miss <- data_list$miss
 miss_agg <- data_list$miss_agg
 
-num_iter <- 1
+num_iter <- 1000
 a <- 0
 R <- 10^10
 tau <- rep(0.01, k)
 kappa <- rep(0.01, k)
 alpha <- rep(3, k)
 beta <- rep(0.1, k)
+positive_threhold <- 1e-10
 
 ## initial impute
 for (j in 1:k) {
@@ -30,4 +31,6 @@ for (t in 1:num_years) {
 }
 
 ## run
-bmmi(num_iter, y, y_agg, miss, miss_agg, a, R, tau, kappa, alpha, beta)
+imputed <- bmmi(num_iter, y, y_agg, miss, miss_agg, a, R, tau, kappa, alpha, beta)
+y_imputed <- imputed$y
+y_agg_imputed <- imputed$y_agg

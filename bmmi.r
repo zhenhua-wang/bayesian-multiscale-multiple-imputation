@@ -10,16 +10,16 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
   num_years <- T / 4
 
   ## starting values
-  theta0 <- rnorm(1, a, R)
   theta <- matrix(0, k, 4*num_years)
-  sigma2 <- apply(y, 1, var)
-  xi <- c(1, 1, 1)
+  sigma2 <- replicate(k, 1/rgamma(1, tau, kappa))
+  xi <- replicate(k, 1/rgamma(1, alpha, beta))
 
   for (iter in 1:num_iter) {
     ## step 1 sample the latent process
     ## https://www.jarad.me/courses/stat615/slides/DLMs/DLMs.pdf
     for (j in 1:k) {
-      dlm_mod <- dlmModPoly(order = 1, dV = sigma2[j], dW = xi[j] * sigma2[j], m0 = theta0)
+      dlm_mod <- dlmModPoly(1, dV = sigma2[j], dW = xi[j] * sigma2[j],
+        m0 = rnorm(1, a, R))
       dlm_filter <- dlmFilter(y[j, ], dlm_mod)
       theta[j, ] <- as.vector(dlmBSample(dlm_filter))[-1]
     }
@@ -61,30 +61,26 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     SIGMA <- H %*% V %*% t(H)
 
     for (t_prime in 1:num_years) {
-      mu_tm <- mu[t_prime, ][miss_z[t_prime, ]]
-      SIGMA_mm <- SIGMA[miss_z[t_prime, ], miss_z[t_prime, ]]
-      SIGMA_mo <- SIGMA[miss_z[t_prime, ], !miss_z[t_prime, ]]
-      SIGMA_om <- SIGMA[!miss_z[t_prime, ], miss_z[t_prime, ]]
-      SIGMA_oo <- SIGMA[!miss_z[t_prime, ], !miss_z[t_prime, ]]
-      SIGMA_oo_decomp <- eigen(SIGMA_oo)
-      P <- SIGMA_oo_decomp$vectors
-      D_star_idx <- SIGMA_oo_decomp$values > positive_threhold
-      D_star_inv <- matrix(0, sum(D_star_idx), sum(D_star_idx))
-      diag(D_star_inv) <- 1 / SIGMA_oo_decomp$values[D_star_idx]
-      P_star <- P[,  D_star_idx]
-      SIGMA_oo_psedoinv <- P_star %*% D_star_inv %*% t(P_star)
-      gamma_tm <- mu_tm - SIGMA_mo %*% SIGMA_oo_psedoinv %*%
-        (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]])
-      Omega <- SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om
-      Omega_decomp <- eigen(Omega)
-      P_omega <- Omega_decomp$vectors
-      D_omega_star_idx <- Omega_decomp$values > positive_threhold
-      D_omega_star_sqrt <- matrix(0, sum(D_omega_star_idx), sum(D_omega_star_idx))
-      diag(D_omega_star_sqrt) <- sqrt(Omega_decomp$values[D_omega_star_idx])
-      P_omega_star <- P_omega[, D_omega_star_idx]
-      Omega_rank <- rankMatrix(Omega)[1]
-      u <- mvrnorm(1, rep(0, sum(D_omega_star_idx)), diag(sum(D_omega_star_idx))) #TODO
-      z[t_prime, ][miss_z[t_prime, ]] <- gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u
+      if (any(miss_z[t_prime, ])) {
+        mu_tm <- mu[t_prime, ][miss_z[t_prime, ]]
+        SIGMA_mm <- SIGMA[miss_z[t_prime, ], miss_z[t_prime, ]]
+        SIGMA_mo <- SIGMA[miss_z[t_prime, ], !miss_z[t_prime, ]]
+        SIGMA_om <- SIGMA[!miss_z[t_prime, ], miss_z[t_prime, ]]
+        SIGMA_oo <- SIGMA[!miss_z[t_prime, ], !miss_z[t_prime, ]]
+        SIGMA_oo_psedoinv <- ginv(SIGMA_oo)
+        gamma_tm <- mu_tm - SIGMA_mo %*% SIGMA_oo_psedoinv %*%
+          (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]])
+        Omega <- SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om
+        Omega_decomp <- eigen(Omega)
+        P_omega <- Omega_decomp$vectors
+        D_omega_star_idx <- Omega_decomp$values > positive_threhold
+        D_omega_star_sqrt <- matrix(0, sum(D_omega_star_idx), sum(D_omega_star_idx))
+        diag(D_omega_star_sqrt) <- sqrt(Omega_decomp$values[D_omega_star_idx])
+        P_omega_star <- P_omega[, D_omega_star_idx]
+        Omega_rank <- rankMatrix(Omega)[1]
+        u <- mvrnorm(1, rep(0, sum(D_omega_star_idx)), diag(sum(D_omega_star_idx))) #TODO
+        z[t_prime, ][miss_z[t_prime, ]] <- gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u
+      }
     }
 
     ## step 4 impute missing values
@@ -95,7 +91,10 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     y_agg_impu <- z[, (4*k+1):dim(z)[2]]
     y[miss] <- y_impu[miss]
     y_agg[miss_agg] <- y_agg_impu[miss_agg]
+
+    cat(iter, "\r")
   }
+  return(list(y = y, y_agg = y_agg, theta = theta))
 }
 
 get_qcew_data <- function(series) {

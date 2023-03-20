@@ -1,47 +1,32 @@
-ffbs <- function(y, F, G, V, W) {
-  # Initialization
-  n <- length(y)
-  m <- rep(0, n)
-  C <- rep(0, n)
-  alpha <- rep(0, n)
-  beta <- rep(0, n)
-  C[n] <- 1 / (G + V)
-  m[n] <- y[n] - F
-  alpha[n] <- m[n] / (G + V)
+library(dlm)
+load("./data/series1")
+source("./bmmi.r")
+data_list <- get_qcew_data(series1)
+k <- data_list$k
+y <- data_list$y
+for (j in 1:k) {
+  y[j, ][is.na(y[j, ])] <- mean(y[j, ], na.rm = TRUE)
+}
+## y <- Nile
 
-  # Forward filtering step
-  for (t in 2:n) {
-    C[t-1] <- 1 / (1 / C[t] + 1 / W)
-    m[t-1] <- (m[t] / C[t] + alpha[t-1]) * C[t-1]
-    alpha[t-1] <- F * m[t-1]
-    beta[t] <- (alpha[t-1] - m[t]) / C[t]
-    C[t-1] <- C[t-1] * (1 - F^2)
-  }
-
-  # Backward smoothing step
-  m_smooth <- m
-  C_smooth <- C
-  for (t in (n-1):1) {
-    m_smooth[t] <- m[t] + C[t] * (F * m_smooth[t+1] - alpha[t])
-    C_smooth[t] <- C[t] + C[t] * (F^2 * C_smooth[t+1] - C[t] - beta[t+1]) / C_smooth[t+1]
-  }
-
-  # Return results
-  return(list(m=m_smooth, C=C_smooth))
+drawIGpost <- function(x, a=0, b=0) {
+  return(1/rgamma(1, a+length(x)/2, b+sum(x^2)/2))
 }
 
-# Generate some data
-set.seed(123)
-n <- 100
-y <- rnorm(n, mean=0, sd=1)
-F <- 0.9
-G <- 1
-V <- 1
-W <- 0.1
-
-# Run the FFBS algorithm
-results <- ffbs(y, F, G, V, W)
-
-# Plot the results
-plot(results$m, type="l", main="Smoothed Means")
-plot(results$C, type="l", main="Smoothed Variances")
+num_iters <- 5000
+theta <- array(0, dim = c(num_iters, dim(y)[1], dim(y)[2]))
+V <- replicate(3, 1/rgamma(1, 3, 0.1))
+W <- replicate(3, 1/rgamma(1, 0.01, 0.01))
+for (i in 1:num_iters) {
+  cat(i,"\r")
+  for (j in 1:k) {
+    # Sample states
+    mod <- dlmModPoly(1, dV = V[j], dW = W[j], rnorm(1, 0, 10^10))
+    filt <- dlmFilter(y[j, ], mod)
+    theta_curr <- dlmBSample(filt)
+    # Sample V and W
+    V[j] <- drawIGpost(y[j, ]-theta_curr[-1])
+    W[j] <- drawIGpost(theta_curr[-1] - theta_curr[-length(theta_curr)])
+    theta[i, j, ] <- theta_curr[-1]
+  }
+}
