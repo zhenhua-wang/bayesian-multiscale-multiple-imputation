@@ -13,7 +13,7 @@ drawIGpost <- function(x, a=0, b=0) {
   return(1/rgamma(1, a+length(x)/2, b+sum(x^2)/2))
 }
 
-n.reps <- 10000
+n.reps <- 30000
 V.reps <- c()
 W.reps <- c()
 theta.reps <- array(0, dim = c(n.reps, j, dim(y)[2]))

@@ -4,14 +4,14 @@ library(dlm)
 
 bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta,
-                 positive_threhold = 1e-12) {
+                 positive_threshold = 1e-12) {
   k <- dim(y)[1]
   T <- dim(y)[2]
   num_years <- T / 4
 
   ## starting values
   theta <- matrix(0, k, 4*num_years)
-  sigma2 <- replicate(k, 1/rgamma(1, tau, kappa))
+  sigma2 <- apply(y, 1, var)
   xi <- replicate(k, 1/rgamma(1, alpha, beta))
 
   for (iter in 1:num_iter) {
@@ -67,15 +67,18 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
         SIGMA_mo <- SIGMA[miss_z[t_prime, ], !miss_z[t_prime, ]]
         SIGMA_om <- SIGMA[!miss_z[t_prime, ], miss_z[t_prime, ]]
         SIGMA_oo <- SIGMA[!miss_z[t_prime, ], !miss_z[t_prime, ]]
-        SIGMA_oo_psedoinv <- ginv(SIGMA_oo)
+        SIGMA_oo_psedoinv <- zapsmall(ginv(SIGMA_oo))
         gamma_tm <- mu_tm - SIGMA_mo %*% SIGMA_oo_psedoinv %*%
           (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]])
         Omega <- SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om
+        gamma_tm <- zapsmall(gamma_tm)
+        Omega <- zapsmall(Omega)
         Omega_decomp <- eigen(Omega)
-        P_omega <- Omega_decomp$vectors
-        D_omega_star_idx <- Omega_decomp$values > positive_threhold
+        P_omega <- zapsmall(Omega_decomp$vectors)
+        D_omega <- zapsmall(Omega_decomp$values)
+        D_omega_star_idx <- D_omega > positive_threshold
         D_omega_star_sqrt <- matrix(0, sum(D_omega_star_idx), sum(D_omega_star_idx))
-        diag(D_omega_star_sqrt) <- sqrt(Omega_decomp$values[D_omega_star_idx])
+        diag(D_omega_star_sqrt) <- zapsmall(sqrt(D_omega[D_omega_star_idx]))
         P_omega_star <- P_omega[, D_omega_star_idx]
         Omega_rank <- rankMatrix(Omega)[1]
         u <- mvrnorm(1, rep(0, sum(D_omega_star_idx)), diag(sum(D_omega_star_idx))) #TODO
