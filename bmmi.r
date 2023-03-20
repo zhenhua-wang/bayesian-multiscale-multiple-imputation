@@ -16,7 +16,6 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
   theta <- matrix(0, k, 4*num_years)
   sigma2 <- apply(y, 1, var)
   xi <- replicate(k, 1/rgamma(1, alpha, beta))
-  ## W <- replicate(k, 1/rgamma(1, tau, kappa))
 
   for (iter in 1:num_iter) {
     ## step 1 sample the latent process
@@ -29,10 +28,6 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     }
 
     ## step 2 sample the hyperparameters
-    ## for (j in 1:k) {
-    ##   sigma2[j] <- zapsmall(drawIGpost(y[j, ] - theta[j, ]))
-    ##   W[j] <- zapsmall(drawIGpost(theta[j, -1] - theta[j, -T]))
-    ## }
     for (j in 1:k) {
       alpha_star_j <- alpha[j] + (T - 1)/2
       beta_star_j <-
@@ -92,12 +87,12 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
         P_omega <- zapsmall(Omega_decomp$vectors)
         D_omega <- zapsmall(Omega_decomp$values)
         D_omega_star_idx <- D_omega > 0
-        D_omega_star_num_pos <- sum(D_omega_star_idx)
-        if (D_omega_star_num_pos == 0) next
-        D_omega_star_sqrt <- matrix(0, D_omega_star_num_pos, D_omega_star_num_pos)
+        D_omega_star_rank <- sum(D_omega_star_idx)
+        if (D_omega_star_rank == 0) next
+        D_omega_star_sqrt <- matrix(0, D_omega_star_rank, D_omega_star_rank)
         diag(D_omega_star_sqrt) <- zapsmall(sqrt(D_omega[D_omega_star_idx]))
         P_omega_star <- P_omega[, D_omega_star_idx]
-        u <- mvrnorm(1, rep(0, D_omega_star_num_pos), diag(D_omega_star_num_pos))
+        u <- mvrnorm(1, rep(0, D_omega_star_rank), diag(D_omega_star_rank))
         z[t_prime, ][miss_z[t_prime, ]] <-
           zapsmall(gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u)
       }
