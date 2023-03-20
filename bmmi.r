@@ -4,7 +4,7 @@ library(dlm)
 
 bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta,
-                 positive_threhold = 1e-10) {
+                 positive_threhold = 1e-12) {
   k <- dim(y)[1]
   T <- dim(y)[2]
   num_years <- T / 4

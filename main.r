@@ -13,14 +13,13 @@ y_agg <- data_list$y_agg
 miss <- data_list$miss
 miss_agg <- data_list$miss_agg
 
-num_iter <- 1000
+num_iter <- 5
 a <- 0
 R <- 10^10
 tau <- rep(0.01, k)
 kappa <- rep(0.01, k)
 alpha <- rep(3, k)
 beta <- rep(0.1, k)
-positive_threhold <- 1e-10
 
 ## initial impute
 for (j in 1:k) {
