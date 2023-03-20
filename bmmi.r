@@ -4,11 +4,13 @@ library(dlm)
 
 bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta) {
-  op <- options(digits = 12)
+  op <- options(digits = 7)
   on.exit(options(op))
   k <- dim(y)[1]
   T <- dim(y)[2]
   num_years <- T / 4
+  y_rep <- NULL
+  y_agg_rep <- NULL
 
   ## starting values
   theta <- matrix(0, k, 4*num_years)
@@ -75,12 +77,13 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
         D_SIGMA_oo_star_inv <- matrix(0, sum(D_SIGMA_oo_star_idx), sum(D_SIGMA_oo_star_idx))
         diag(D_SIGMA_oo_star_inv) <- zapsmall(1 / D_SIGMA_oo[D_SIGMA_oo_star_idx])
         P_SIGMA_oo_star <- P_SIGMA_oo[, D_SIGMA_oo_star_idx]
-        SIGMA_oo_psedoinv <- zapsmall(P_SIGMA_oo_star %*% D_SIGMA_oo_star_inv %*% t(P_SIGMA_oo_star))
-        gamma_tm <- mu_tm + SIGMA_mo %*% SIGMA_oo_psedoinv %*%
-          (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]])
-        Omega <- SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om
-        gamma_tm <- zapsmall(gamma_tm)
-        Omega <- zapsmall(Omega)
+        SIGMA_oo_psedoinv <- zapsmall(
+          P_SIGMA_oo_star %*% D_SIGMA_oo_star_inv %*% t(P_SIGMA_oo_star))
+        gamma_tm <- zapsmall(
+          mu_tm + SIGMA_mo %*% SIGMA_oo_psedoinv %*%
+            (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]]))
+        Omega <- zapsmall(
+          SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om)
         Omega_decomp <- eigen(Omega)
         P_omega <- zapsmall(Omega_decomp$vectors)
         D_omega <- zapsmall(Omega_decomp$values)
@@ -91,8 +94,8 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
         diag(D_omega_star_sqrt) <- zapsmall(sqrt(D_omega[D_omega_star_idx]))
         P_omega_star <- P_omega[, D_omega_star_idx]
         u <- mvrnorm(1, rep(0, D_omega_star_rank), diag(D_omega_star_rank))
-        z[t_prime, ][miss_z[t_prime, ]] <-
-          zapsmall(gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u)
+        z[t_prime, ][miss_z[t_prime, ]] <- zapsmall(
+          gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u)
       }
     }
 
@@ -105,9 +108,11 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     y[miss] <- y_impu[miss]
     y_agg[miss_agg] <- y_agg_impu[miss_agg]
 
+    ## y_rep <- rbind(y_rep, y)
+    ## y_agg_rep <- rbind(y_agg_rep, y_agg)
     cat(iter, "\r")
   }
-  return(list(y = y, y_agg = y_agg, theta = theta))
+  return(list(y = y, y_agg = y_agg))
 }
 
 get_qcew_data <- function(series) {
