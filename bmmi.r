@@ -31,6 +31,23 @@ rnorm_singular <- function(Mu, Var) {
   return(sample)
 }
 
+y_to_ytrans <- function(y, num_years, k) {
+  y_trans <- NULL
+  for (t_prime in 1:num_years) {
+    y_trans <- rbind(y_trans, as.vector(
+      t(y[, (4*(t_prime-1)+1):(4*t_prime)])))
+  }
+  return(y_trans)
+}
+
+ytrans_to_y <- function(y_trans, num_years, k) {
+  y <- NULL
+  for (j in 1:k) {
+    y <- rbind(y, as.vector(t(y_trans[, (4*(j-1)+1):(4*j)])))
+  }
+  return(y)
+}
+
 bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta) {
   op <- options(digits = 7)
@@ -73,17 +90,9 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     }
 
     ## step 3 sample z
-    y_trans <- matrix(0, num_years, 4*k)
-    theta_trans <- matrix(0, num_years, 4*k)
-    miss_trans <- matrix(FALSE, num_years, 4*k)
-    for (t_prime in 1:num_years) {
-      y_trans[t_prime, ] <- as.vector(
-        t(y[, (4*(t_prime-1)+1):(4*t_prime)]))
-      theta_trans[t_prime, ] <- as.vector(
-        t(theta[, (4*(t_prime-1)+1):(4*t_prime)]))
-      miss_trans[t_prime, ] <- as.vector(
-        t(miss[, (4*(t_prime-1)+1):(4*t_prime)]))
-    }
+    y_trans <- y_to_ytrans(y, num_years, k)
+    theta_trans <- y_to_ytrans(theta, num_years, k)
+    miss_trans <- y_to_ytrans(miss, num_years, k)
     z <- cbind(y_trans, y_agg)
     miss_z <- cbind(miss_trans, miss_agg)
 
@@ -116,10 +125,7 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     }
 
     ## step 4 impute missing values
-    y_impu <- matrix(0, k, 4*num_years)
-    for (j in 1:k) {
-      y_impu[j, ] <- as.vector(t(z[, (4*(j-1)+1):(4*j)]))
-    }
+    y_impu <- ytrans_to_y(z[, 1:(4*k)], num_years, k)
     y_agg_impu <- z[, (4*k+1):dim(z)[2]]
     y[miss] <- y_impu[miss]
     y_agg[miss_agg] <- y_agg_impu[miss_agg]
