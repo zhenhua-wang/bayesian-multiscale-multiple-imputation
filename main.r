@@ -50,3 +50,4 @@ for (t in 1:num_years) {
 imputed <- bmmi(num_iter, y, y_agg, miss, miss_agg, a, R, tau, kappa, alpha, beta)
 y_imputed <- imputed$y
 y_agg_imputed <- imputed$y_agg
+theta_imputed <- imputed$theta

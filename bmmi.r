@@ -116,7 +116,7 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     ## y_agg_rep <- rbind(y_agg_rep, y_agg)
     cat(iter, "\r")
   }
-  return(list(y = y, y_agg = y_agg))
+  return(list(y = y, y_agg = y_agg, theta = theta))
 }
 
 get_qcew_data <- function(series) {
