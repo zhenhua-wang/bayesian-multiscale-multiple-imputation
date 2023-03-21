@@ -75,13 +75,13 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
 
     ## step 2 sample the hyperparameters
     for (j in 1:k) {
+      ## sample xi
       alpha_star_j <- alpha[j] + (T - 1)/2
       beta_star_j <-
         zapsmall(beta[j] +
                    sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / sigma2[j]))
       xi[j] <- zapsmall(1/rgamma(1, alpha_star_j, beta_star_j))
-    }
-    for (j in 1:k) {
+      ## sample sigma2
       tau_star_j <- tau[j] + (2*T - 1)/2
       kappa_star_j <-
         zapsmall(kappa[j] + sum((y[j, ] - theta[j, ])^2) +
