@@ -13,7 +13,7 @@ y_agg <- data_list$y_agg / 1000
 miss <- data_list$miss
 miss_agg <- data_list$miss_agg
 
-num_iter <- 30000
+num_iter <- 10000
 a <- mean(y, na.rm = TRUE)
 R <- 1000
 tau <- rep(0.01, k)
@@ -37,10 +37,10 @@ for (t in 1:num_years) {
 }
 ## annual total
 for (t in 1:num_years) {
-  for (j in (4+1):(4+k)) {
-    miss_curr <- miss_agg[t, j]
+  for (j in 1:k) {
+    miss_curr <- miss_agg[t, 4+j]
     if (miss_curr) {
-      y_agg[t, j] <- sum(y[j-4, ((t-1)*4+1):(t*4)])
+      y_agg[t, 4+j] <- sum(y[j, ((t-1)*4+1):(t*4)])
     }
   }
 }
