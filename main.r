@@ -3,8 +3,8 @@ library(MASS)
 library(dlm)
 source("./bmmi.r")
 
-load("./data/series4")
-data_list <- get_qcew_data(series4)
+load("./data/series1")
+data_list <- get_qcew_data(series1)
 k <- data_list$k
 T <- data_list$T
 num_years <- T / 4
@@ -14,7 +14,6 @@ miss <- data_list$miss
 miss_agg <- data_list$miss_agg
 
 num_iter <- 10000
-num_burning <- 5000
 a <- 0
 R <- 1
 tau <- rep(0.01, k)

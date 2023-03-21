@@ -13,6 +13,8 @@ drawIGpost <- function(x, a=0, b=0) {
   return(1/rgamma(1, a+length(x)/2, b+sum(x^2)/2))
 }
 
+a <- 0
+R <- 1
 alpha <- 3
 beta <- 0.1
 tau <- 0.01
@@ -28,7 +30,8 @@ for (i in 1:n.reps) {
   cat(i,"\r")
   for (j in 1:k) {
     # Sample states
-    mod <- dlmModPoly(1, dV = sigma2[j], dW = xi[j] * sigma2[j])
+    mod <- dlmModPoly(1, dV = sigma2[j], dW = xi[j] * sigma2[j],
+      m0 = rnorm(1, a, R))
     filt <- dlmFilter(y[j, ], mod)
     theta <- dlmBSample(filt)[-1]
     # Sample V and W

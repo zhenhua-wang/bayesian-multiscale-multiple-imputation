@@ -2,6 +2,35 @@ library(Matrix)
 library(MASS)
 library(dlm)
 
+pinv <- function(mat) {
+  ## assuming mat is symmetric
+  mat_decomp <- eigen(mat)
+  P_mat <- zapsmall(mat_decomp$vectors)
+  D_mat <- zapsmall(mat_decomp$values)
+  D_mat_star_idx <- D_mat > 0
+  D_mat_star_inv <- matrix(0, sum(D_mat_star_idx), sum(D_mat_star_idx))
+  diag(D_mat_star_inv) <- zapsmall(1 / D_mat[D_mat_star_idx])
+  P_mat_star <- P_mat[, D_mat_star_idx]
+  mat_pinv <- zapsmall(
+    P_mat_star %*% D_mat_star_inv %*% t(P_mat_star))
+  return(mat_pinv)
+}
+
+rnorm_singular <- function(Mu, Var) {
+  ## assuming omega is symmetric
+  Var_decomp <- eigen(Var)
+  P_Var <- zapsmall(Var_decomp$vectors)
+  D_Var <- zapsmall(Var_decomp$values)
+  D_Var_star_idx <- D_Var > 0
+  D_Var_star_rank <- sum(D_Var_star_idx)
+  D_Var_star_sqrt <- matrix(0, D_Var_star_rank, D_Var_star_rank)
+  diag(D_Var_star_sqrt) <- zapsmall(sqrt(D_Var[D_Var_star_idx]))
+  P_Var_star <- P_Var[, D_Var_star_idx]
+  u <- mvrnorm(1, rep(0, D_Var_star_rank), diag(D_Var_star_rank))
+  sample <- zapsmall(Mu + P_Var_star %*% D_Var_star_sqrt %*% u)
+  return(sample)
+}
+
 bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta) {
   op <- options(digits = 7)
@@ -73,33 +102,16 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
         SIGMA_mo <- SIGMA[miss_z[t_prime, ], !miss_z[t_prime, ]]
         SIGMA_om <- SIGMA[!miss_z[t_prime, ], miss_z[t_prime, ]]
         SIGMA_oo <- SIGMA[!miss_z[t_prime, ], !miss_z[t_prime, ]]
-        SIGMA_oo_decomp <- eigen(SIGMA_oo)
-        P_SIGMA_oo <- zapsmall(SIGMA_oo_decomp$vectors)
-        D_SIGMA_oo <- zapsmall(SIGMA_oo_decomp$values)
-        D_SIGMA_oo_star_idx <- D_SIGMA_oo > 0
-        D_SIGMA_oo_star_inv <- matrix(0, sum(D_SIGMA_oo_star_idx), sum(D_SIGMA_oo_star_idx))
-        diag(D_SIGMA_oo_star_inv) <- zapsmall(1 / D_SIGMA_oo[D_SIGMA_oo_star_idx])
-        P_SIGMA_oo_star <- P_SIGMA_oo[, D_SIGMA_oo_star_idx]
-        SIGMA_oo_psedoinv <- zapsmall(
-          P_SIGMA_oo_star %*% D_SIGMA_oo_star_inv %*% t(P_SIGMA_oo_star))
+        ## sample from posterior
+        SIGMA_oo_pinv <- pinv(SIGMA_oo)
         gamma_tm <- zapsmall(
-          mu_tm + SIGMA_mo %*% SIGMA_oo_psedoinv %*%
-            (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]]))
+          mu_tm + SIGMA_mo %*% SIGMA_oo_pinv %*%
+            (z[t_prime, ][!miss_z[t_prime, ]] -
+               mu[t_prime, ][!miss_z[t_prime, ]]))
         Omega <- zapsmall(
-          SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om)
+          SIGMA_mm - SIGMA_mo %*% SIGMA_oo_pinv %*% SIGMA_om)
         Omega <- (Omega + t(Omega)) / 2 # solve numerical issue
-        Omega_decomp <- eigen(Omega)
-        P_omega <- zapsmall(Omega_decomp$vectors)
-        D_omega <- zapsmall(Omega_decomp$values)
-        D_omega_star_idx <- D_omega > 0
-        D_omega_star_rank <- sum(D_omega_star_idx)
-        if (D_omega_star_rank == 0) next
-        D_omega_star_sqrt <- matrix(0, D_omega_star_rank, D_omega_star_rank)
-        diag(D_omega_star_sqrt) <- zapsmall(sqrt(D_omega[D_omega_star_idx]))
-        P_omega_star <- P_omega[, D_omega_star_idx]
-        u <- mvrnorm(1, rep(0, D_omega_star_rank), diag(D_omega_star_rank))
-        z[t_prime, ][miss_z[t_prime, ]] <- zapsmall(
-          gamma_tm + P_omega_star %*% D_omega_star_sqrt %*% u)
+        z[t_prime, ][miss_z[t_prime, ]] <- rnorm_singular(gamma_tm, Omega)
       }
     }
 
