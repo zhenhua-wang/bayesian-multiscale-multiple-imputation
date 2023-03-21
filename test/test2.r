@@ -1,7 +1,7 @@
 library(dlm)
-load("./data/series1")
+load("./data/series4")
 source("./bmmi.r")
-data_list <- get_qcew_data(series1)
+data_list <- get_qcew_data(series4)
 k <- data_list$k
 N <- data_list$T
 y <- data_list$y
@@ -17,7 +17,7 @@ alpha <- 3
 beta <- 0.1
 tau <- 0.01
 kappa <- 0.01
-n.reps <- 50000
+n.reps <- 10000
 sigma2.reps <- matrix(0, n.reps, k)
 xi.reps <- matrix(0, n.reps, k)
 theta.reps <- array(0, dim = c(n.reps, j, dim(y)[2]))

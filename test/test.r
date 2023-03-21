@@ -1,7 +1,7 @@
 library(dlm)
-load("./data/series3")
 source("./bmmi.r")
-data_list <- get_qcew_data(series3)
+load("./data/series4")
+data_list <- get_qcew_data(series4)
 k <- data_list$k
 T <- data_list$T
 y <- data_list$y

@@ -48,9 +48,12 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     theta_trans <- matrix(0, num_years, 4*k)
     miss_trans <- matrix(FALSE, num_years, 4*k)
     for (t_prime in 1:num_years) {
-      y_trans[t_prime, ] <- as.vector(t(y[, (4*(t_prime-1)+1):(4*t_prime)]))
-      theta_trans[t_prime, ] <- as.vector(t(theta[, (4*(t_prime-1)+1):(4*t_prime)]))
-      miss_trans[t_prime, ] <- as.vector(t(miss[, (4*(t_prime-1)+1):(4*t_prime)]))
+      y_trans[t_prime, ] <- as.vector(
+        t(y[, (4*(t_prime-1)+1):(4*t_prime)]))
+      theta_trans[t_prime, ] <- as.vector(
+        t(theta[, (4*(t_prime-1)+1):(4*t_prime)]))
+      miss_trans[t_prime, ] <- as.vector(
+        t(miss[, (4*(t_prime-1)+1):(4*t_prime)]))
     }
     z <- cbind(y_trans, y_agg)
     miss_z <- cbind(miss_trans, miss_agg)
@@ -84,6 +87,7 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
             (z[t_prime, ][!miss_z[t_prime, ]] - mu[t_prime, ][!miss_z[t_prime, ]]))
         Omega <- zapsmall(
           SIGMA_mm - SIGMA_mo %*% SIGMA_oo_psedoinv %*% SIGMA_om)
+        Omega <- (Omega + t(Omega)) / 2 # solve numerical issue
         Omega_decomp <- eigen(Omega)
         P_omega <- zapsmall(Omega_decomp$vectors)
         D_omega <- zapsmall(Omega_decomp$values)
