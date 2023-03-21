@@ -6,16 +6,16 @@ source("./bmmi.r")
 load("./data/series1")
 data_list <- get_qcew_data(series1)
 k <- data_list$k
-T <- data_list$T
-num_years <- T / 4
-y <- data_list$y
-y_agg <- data_list$y_agg
+N <- data_list$N
+num_years <- N / 4
+y <- data_list$y / 1000
+y_agg <- data_list$y_agg / 1000
 miss <- data_list$miss
 miss_agg <- data_list$miss_agg
 
-num_iter <- 10000
-a <- 0
-R <- 1
+num_iter <- 30000
+a <- mean(y, na.rm = TRUE)
+R <- 1000
 tau <- rep(0.01, k)
 kappa <- rep(0.01, k)
 alpha <- rep(3, k)

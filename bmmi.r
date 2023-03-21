@@ -53,8 +53,8 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
   op <- options(digits = 7)
   on.exit(options(op))
   k <- dim(y)[1]
-  T <- dim(y)[2]
-  num_years <- T / 4
+  N <- dim(y)[2]
+  num_years <- N / 4
   y_rep <- NULL
   y_agg_rep <- NULL
 
@@ -76,16 +76,16 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     ## step 2 sample the hyperparameters
     for (j in 1:k) {
       ## sample xi
-      alpha_star_j <- alpha[j] + (T - 1)/2
+      alpha_star_j <- alpha[j] + (N - 1)/2
       beta_star_j <-
         zapsmall(beta[j] +
-                   sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / sigma2[j]))
+                   sum(0.5 * (theta[j, -1] - theta[j, -N])^2 / sigma2[j]))
       xi[j] <- zapsmall(1/rgamma(1, alpha_star_j, beta_star_j))
       ## sample sigma2
-      tau_star_j <- tau[j] + (2*T - 1)/2
+      tau_star_j <- tau[j] + (2*N - 1)/2
       kappa_star_j <-
         zapsmall(kappa[j] + sum((y[j, ] - theta[j, ])^2) +
-                   sum(0.5 * (theta[j, -1] - theta[j, -T])^2 / xi[j]))
+                   sum(0.5 * (theta[j, -1] - theta[j, -N])^2 / xi[j]))
       sigma2[j] <- zapsmall(1/rgamma(1, tau_star_j, kappa_star_j))
     }
 
@@ -106,21 +106,20 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
 
     for (t_prime in 1:num_years) {
       if (any(miss_z[t_prime, ])) {
-        mu_tm <- mu[t_prime, ][miss_z[t_prime, ]]
-        SIGMA_mm <- SIGMA[miss_z[t_prime, ], miss_z[t_prime, ]]
-        SIGMA_mo <- SIGMA[miss_z[t_prime, ], !miss_z[t_prime, ]]
-        SIGMA_om <- SIGMA[!miss_z[t_prime, ], miss_z[t_prime, ]]
-        SIGMA_oo <- SIGMA[!miss_z[t_prime, ], !miss_z[t_prime, ]]
+        mis_idx <- miss_z[t_prime, ]
+        obs_idx <- !miss_z[t_prime, ]
+        mu_tm <- mu[t_prime, ][mis_idx]
         ## sample from posterior
-        SIGMA_oo_pinv <- pinv(SIGMA_oo)
+        SIGMA_oo_pinv <- pinv(SIGMA[obs_idx, obs_idx])
         gamma_tm <- zapsmall(
-          mu_tm + SIGMA_mo %*% SIGMA_oo_pinv %*%
-            (z[t_prime, ][!miss_z[t_prime, ]] -
-               mu[t_prime, ][!miss_z[t_prime, ]]))
+          mu_tm + SIGMA[mis_idx, obs_idx] %*% SIGMA_oo_pinv %*%
+            (z[t_prime, ][obs_idx] - mu[t_prime, ][obs_idx]))
         Omega <- zapsmall(
-          SIGMA_mm - SIGMA_mo %*% SIGMA_oo_pinv %*% SIGMA_om)
+          SIGMA[mis_idx, mis_idx] -
+            SIGMA[mis_idx, obs_idx] %*% SIGMA_oo_pinv %*%
+            SIGMA[obs_idx, mis_idx])
         Omega <- (Omega + t(Omega)) / 2 # solve numerical issue
-        z[t_prime, ][miss_z[t_prime, ]] <- rnorm_singular(gamma_tm, Omega)
+        z[t_prime, ][mis_idx] <- rnorm_singular(gamma_tm, Omega)
       }
     }
 
@@ -140,7 +139,7 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
 get_qcew_data <- function(series) {
   num_years <- (dim(series)[2] - 2) / (4 + 1)
   k <- dim(series)[1] - 1
-  T <- num_years * 4
+  N <- num_years * 4
   data <- series[, -1:-2]
   y <- matrix(0, k, 4*num_years)
   y_agg <- matrix(0, num_years, 4 + k)
@@ -157,5 +156,5 @@ get_qcew_data <- function(series) {
   y[miss] <- NA
   y_agg[miss_agg] <- NA
   return(list(y = y, y_agg = y_agg,
-    miss = miss, miss_agg = miss_agg, k = k, T = T))
+    miss = miss, miss_agg = miss_agg, k = k, N = N))
 }
