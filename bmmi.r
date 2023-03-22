@@ -48,7 +48,7 @@ ytrans_to_y <- function(y_trans, num_years, k) {
   return(y)
 }
 
-bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
+bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta) {
   op <- options(digits = 7)
   on.exit(options(op))
@@ -57,6 +57,8 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
   num_years <- N / 4
   y_rep <- NULL
   y_agg_rep <- NULL
+  sigma2_rep <- NULL
+  xi_rep <- NULL
 
   ## starting values
   theta <- matrix(0, k, 4*num_years)
@@ -129,11 +131,17 @@ bmmi <- function(num_iter, y, y_agg, miss, miss_agg,
     y[miss] <- y_impu[miss]
     y_agg[miss_agg] <- y_agg_impu[miss_agg]
 
-    ## y_rep <- rbind(y_rep, y)
-    ## y_agg_rep <- rbind(y_agg_rep, y_agg)
+    if (iter > num_burning) {
+      y_rep <- rbind(y_rep, y)
+      y_agg_rep <- rbind(y_agg_rep, y_agg)
+      sigma2_rep <- rbind(sigma2_rep, sigma2)
+      xi_rep <- rbind(xi_rep, xi)
+    }
     cat(iter, "\r")
   }
-  return(list(y = y, y_agg = y_agg, theta = theta))
+  return(list(y = y, y_agg = y_agg, theta = theta,
+    y_rep = y_rep, y_agg_rep = y_agg_rep,
+    sigma2_rep = sigma2_rep, xi_rep = xi_rep))
 }
 
 get_qcew_data <- function(series) {
@@ -157,4 +165,40 @@ get_qcew_data <- function(series) {
   y_agg[miss_agg] <- NA
   return(list(y = y, y_agg = y_agg,
     miss = miss, miss_agg = miss_agg, k = k, N = N))
+}
+
+plot_series <- function(y, miss) {
+  k <- dim(y)[1]
+  N <- dim(y)[2]
+  x <- 1:N
+  par(mfrow = c(1, 3))
+  for (j in 1:k) {
+    mis_j <- miss[j, ]
+    obs_j <- !miss[j, ]
+    plot(x, y[j, ], type = "l")
+    points(x[obs_j], y[j, obs_j], col = "black")
+    points(x[mis_j], y[j, mis_j], col = "blue", pch = 17, cex = 2)
+  }
+}
+
+
+plot_mcmc_series <- function(y_mcmc, miss) {
+  k <- dim(y_mcmc)[1]
+  N <- dim(y_mcmc)[3]
+  ## get mean
+  y_mean <- apply(y_mcmc, c(1, 3), mean)
+  ## get 95 CI
+  y_lower <- apply(y_mcmc, c(1, 3), quantile, probs = 0.025)
+  y_upper <- apply(y_mcmc, c(1, 3), quantile, probs = 0.975)
+  x <- 1:N
+  par(mfrow = c(1, 3))
+  for (j in 1:k) {
+    mis_j <- miss[j, ]
+    obs_j <- !miss[j, ]
+    plot(x, y_mean[j, ], type = "l")
+    points(x[obs_j], y_mean[j, obs_j], col = "black")
+    points(x[mis_j], y_mean[j, mis_j], col = "blue", pch = 17, cex = 2)
+    arrows(x[mis_j], y_lower[j, mis_j], x[mis_j], y_upper[j, mis_j],
+      length = 0.05, angle = 90, code = 3, lty = 2)
+  }
 }

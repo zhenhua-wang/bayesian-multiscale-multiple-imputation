@@ -3,8 +3,8 @@ library(MASS)
 library(dlm)
 source("./bmmi.r")
 
-load("./data/series1")
-data_list <- get_qcew_data(series1)
+load("./data/series2")
+data_list <- get_qcew_data(series2)
 k <- data_list$k
 N <- data_list$N
 num_years <- N / 4
@@ -14,6 +14,7 @@ miss <- data_list$miss
 miss_agg <- data_list$miss_agg
 
 num_iter <- 10000
+num_burning <- 5000
 a <- mean(y, na.rm = TRUE)
 R <- 1000
 tau <- rep(0.01, k)
@@ -45,8 +46,29 @@ for (t in 1:num_years) {
   }
 }
 
+plot_series(y, miss)
+
 ## run
-imputed <- bmmi(num_iter, y, y_agg, miss, miss_agg, a, R, tau, kappa, alpha, beta)
+imputed <- bmmi(num_iter, num_burning, y, y_agg, miss, miss_agg, a, R, tau, kappa, alpha, beta)
 y_imputed <- imputed$y
 y_agg_imputed <- imputed$y_agg
 theta_imputed <- imputed$theta
+sigma2_imputed <- imputed$sigma2_rep
+xi_imputed <- imputed$xi_rep
+
+par(mfrow = c(2, 3))
+plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 1])
+plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 2])
+plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 2])
+plot(1:(num_iter-num_burning), imputed$xi_rep[, 1])
+plot(1:(num_iter-num_burning), imputed$xi_rep[, 2])
+plot(1:(num_iter-num_burning), imputed$xi_rep[, 2])
+
+y_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
+for (j in 1:k) {
+  for (i in 1:(num_iter-num_burning)) {
+    y_imputed_mcmc[j, i, ] <- imputed$y_rep[((i-1)*k + 1):(i*k), ][j, ]
+  }
+}
+
+plot_mcmc_series(y_imputed_mcmc, miss)
