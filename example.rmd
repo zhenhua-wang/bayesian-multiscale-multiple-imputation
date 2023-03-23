@@ -1,0 +1,114 @@
+---
+title: BMMI
+author: Zhenhua Wang
+output: pdf_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(Matrix)
+library(MASS)
+library(dlm)
+source("./bmmi.r")
+```
+
+# retail clothes
+```{r message=FALSE, warning=FALSE}
+load("./data/series1")
+data_list <- get_qcew_data(series1)
+impute_series(data_list)
+```
+
+```{r message=FALSE, warning=FALSE}
+load("./data/series2")
+data_list <- get_qcew_data(series2)
+impute_series(data_list)
+```
+
+```{r message=FALSE, warning=FALSE}
+load("./data/series3")
+data_list <- get_qcew_data(series3)
+impute_series(data_list)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+load("./data/series4")
+data_list <- get_qcew_data(series4)
+k <- data_list$k
+N <- data_list$N
+num_years <- N / 4
+y <- data_list$y / 1000
+y_agg <- data_list$y_agg / 1000
+miss <- data_list$miss
+miss_agg <- data_list$miss_agg
+num_iter <- 10000
+num_burning <- 5000
+a <- mean(y, na.rm = TRUE)
+R <- 1000
+tau <- rep(0.01, k)
+kappa <- rep(0.01, k)
+alpha <- rep(3, k)
+beta <- rep(0.1, k)
+## initial impute
+## time series
+for (j in 1:k) {
+  y[j, ][miss[j, ]] <- mean(y[j, ], na.rm=TRUE)
+}
+## quarterly total
+for (t in 1:num_years) {
+  for (q in 1:4) {
+    miss_curr <- miss_agg[t, q]
+    if (miss_curr) {
+      y_agg[t, q] <- sum(y[, (t-1)*4 + q])
+    }
+  }
+}
+## annual total
+for (t in 1:num_years) {
+  for (j in 1:k) {
+    miss_curr <- miss_agg[t, 4+j]
+    if (miss_curr) {
+      y_agg[t, 4+j] <- sum(y[j, ((t-1)*4+1):(t*4)])
+    }
+  }
+}
+plot_series(y, miss)
+```
+
+# Electronic and Appliance retail
+```{r message=FALSE, warning=FALSE}
+load("./data/series11")
+data_list <- get_qcew_data(series11)
+impute_series(data_list)
+```
+
+```{r message=FALSE, warning=FALSE}
+load("./data/series12")
+data_list <- get_qcew_data(series12)
+impute_series(data_list)
+```
+
+```{r message=FALSE, warning=FALSE}
+load("./data/series13")
+data_list <- get_qcew_data(series13)
+impute_series(data_list)
+```
+
+# Residential Building Construction
+```{r message=FALSE, warning=FALSE}
+load("./data/series21")
+data_list <- get_qcew_data(series21)
+impute_series(data_list)
+```
+
+```{r message=FALSE, warning=FALSE}
+load("./data/series22")
+data_list <- get_qcew_data(series22)
+impute_series(data_list)
+```
+
+```{r message=FALSE, warning=FALSE}
+load("./data/series23")
+data_list <- get_qcew_data(series23)
+impute_series(data_list)
+```

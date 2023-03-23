@@ -3,8 +3,8 @@ library(MASS)
 library(dlm)
 source("./bmmi.r")
 
-load("./data/series2")
-data_list <- get_qcew_data(series2)
+load("./data/series3")
+data_list <- get_qcew_data(series3)
 k <- data_list$k
 N <- data_list$N
 num_years <- N / 4
@@ -56,13 +56,15 @@ theta_imputed <- imputed$theta
 sigma2_imputed <- imputed$sigma2_rep
 xi_imputed <- imputed$xi_rep
 
+png(filename="./mcmc.png")
 par(mfrow = c(2, 3))
-plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 1])
-plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 2])
-plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 2])
-plot(1:(num_iter-num_burning), imputed$xi_rep[, 1])
-plot(1:(num_iter-num_burning), imputed$xi_rep[, 2])
-plot(1:(num_iter-num_burning), imputed$xi_rep[, 2])
+plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 1], xlab = "", ylab = "sigma2[1]")
+plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 2], xlab = "", ylab = "sigma2[2]")
+plot(1:(num_iter-num_burning), imputed$sigma2_rep[, 3], xlab = "", ylab = "sigma2[3]")
+plot(1:(num_iter-num_burning), imputed$xi_rep[, 1], xlab = "", ylab = "x1[1]")
+plot(1:(num_iter-num_burning), imputed$xi_rep[, 2], xlab = "", ylab = "x1[2]")
+plot(1:(num_iter-num_burning), imputed$xi_rep[, 3], xlab = "", ylab = "x1[3]")
+dev.off()
 
 y_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
 for (j in 1:k) {
