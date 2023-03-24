@@ -16,7 +16,7 @@ miss_agg <- data_list$miss_agg
 num_iter <- 10000
 num_burning <- 5000
 a <- mean(y, na.rm = TRUE)
-R <- 1000
+R <- 10^10
 tau <- rep(0.01, k)
 kappa <- rep(0.01, k)
 alpha <- rep(3, k)

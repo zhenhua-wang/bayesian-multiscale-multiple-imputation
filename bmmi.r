@@ -70,7 +70,7 @@ bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
     ## https://www.jarad.me/courses/stat615/slides/DLMs/DLMs.pdf
     for (j in 1:k) {
       dlm_mod <- dlmModPoly(1, dV = sigma2[j], dW = xi[j] * sigma2[j],
-        m0 = rnorm(1, a, R))
+        m0 = a, C0 = R)
       dlm_filter <- dlmFilter(y[j, ], dlm_mod)
       theta[j, ] <- as.vector(dlmBSample(dlm_filter))[-1]
     }
@@ -191,13 +191,13 @@ plot_mcmc_series <- function(y_mcmc, miss) {
   y_lower <- apply(y_mcmc, c(1, 3), quantile, probs = 0.025)
   y_upper <- apply(y_mcmc, c(1, 3), quantile, probs = 0.975)
   x <- 1:N
-  par(mfrow = c(1, 3))
+  ## par(mfrow = c(3, 1))
   for (j in 1:k) {
     mis_j <- miss[j, ]
     obs_j <- !miss[j, ]
     plot(x, y_mean[j, ], type = "l")
     points(x[obs_j], y_mean[j, obs_j], col = "black")
-    points(x[mis_j], y_mean[j, mis_j], col = "blue", pch = 17, cex = 2)
+    points(x[mis_j], y_mean[j, mis_j], col = "blue", pch = 17, cex = 1)
     arrows(x[mis_j], y_lower[j, mis_j], x[mis_j], y_upper[j, mis_j],
       length = 0.05, angle = 90, code = 3, lty = 2)
   }
@@ -214,7 +214,7 @@ impute_series <- function(data_list) {
   num_iter <- 10000
   num_burning <- 5000
   a <- mean(y, na.rm = TRUE)
-  R <- 1000
+  R <- 10^10
   tau <- rep(0.01, k)
   kappa <- rep(0.01, k)
   alpha <- rep(3, k)
