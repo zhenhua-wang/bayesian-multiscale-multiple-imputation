@@ -182,7 +182,7 @@ plot_series <- function(y, miss) {
 }
 
 
-plot_mcmc_series <- function(y_mcmc, miss) {
+plot_mcmc_series <- function(y_mcmc, miss, return_table = FALSE) {
   k <- dim(y_mcmc)[1]
   N <- dim(y_mcmc)[3]
   ## get mean
@@ -195,11 +195,21 @@ plot_mcmc_series <- function(y_mcmc, miss) {
   for (j in 1:k) {
     mis_j <- miss[j, ]
     obs_j <- !miss[j, ]
-    plot(x, y_mean[j, ], type = "l")
+    ylim_upper <- max(y_mean[j, ], y_upper[j, mis_j])
+    ylim_lower <- min(y_mean[j, ], y_lower[j, mis_j])
+    plot(x, y_mean[j, ], type = "l", ylim = c(ylim_lower, ylim_upper))
     points(x[obs_j], y_mean[j, obs_j], col = "black")
     points(x[mis_j], y_mean[j, mis_j], col = "blue", pch = 17, cex = 1)
     arrows(x[mis_j], y_lower[j, mis_j], x[mis_j], y_upper[j, mis_j],
       length = 0.05, angle = 90, code = 3, lty = 2)
+  }
+  ## return CI
+  if (return_table) {
+    CI_table <- data.frame(
+      y_mean = as.vector(t(y_mean)),
+      y_lower = as.vector(t(y_lower)),
+      y_upper = as.vector(t(y_upper)),
+      serie_id = rep(seq(1, k), each = N))
   }
 }
 

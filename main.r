@@ -3,8 +3,8 @@ library(MASS)
 library(dlm)
 source("./bmmi.r")
 
-load("./data/series3")
-data_list <- get_qcew_data(series3)
+load("./data/series1")
+data_list <- get_qcew_data(series1)
 k <- data_list$k
 N <- data_list$N
 num_years <- N / 4
@@ -73,4 +73,29 @@ for (j in 1:k) {
   }
 }
 
-plot_mcmc_series(y_imputed_mcmc, miss)
+y_mcmc <- y_imputed_mcmc
+k <- dim(y_mcmc)[1]
+N <- dim(y_mcmc)[3]
+## get mean
+y_mean <- apply(y_mcmc, c(1, 3), mean)
+## get 95 CI
+y_lower <- apply(y_mcmc, c(1, 3), quantile, probs = 0.025)
+y_upper <- apply(y_mcmc, c(1, 3), quantile, probs = 0.975)
+x <- 1:N
+par(mfrow = c(3, 1))
+for (j in 1:k) {
+  mis_j <- miss[j, ]
+  obs_j <- !miss[j, ]
+  ylim_upper <- max(y_mean[j, ], y_upper[j, mis_j])
+  ylim_lower <- min(y_mean[j, ], y_lower[j, mis_j])
+  plot(x, y_mean[j, ], type = "l", ylim = c(ylim_lower, ylim_upper))
+  points(x[obs_j], y_mean[j, obs_j], col = "black")
+  points(x[mis_j], y_mean[j, mis_j], col = "blue", pch = 17, cex = 1)
+  arrows(x[mis_j], y_lower[j, mis_j], x[mis_j], y_upper[j, mis_j],
+    length = 0.05, angle = 90, code = 3, lty = 2)
+}
+
+y_CI <- plot_mcmc_series(y_imputed_mcmc, miss, TRUE)
+y_CI$y <- as.vector(t(y_mean))
+y_CI[as.vector(t(!miss)), c("y_mean", "y_lower", "y_upper")] <- NA
+y_CI[y_CI$serie_id == 1, ]
