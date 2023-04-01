@@ -59,6 +59,7 @@ bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
   y_agg_rep <- NULL
   sigma2_rep <- NULL
   xi_rep <- NULL
+  theta_rep <- NULL
 
   ## starting values
   theta <- matrix(0, k, 4*num_years)
@@ -136,12 +137,14 @@ bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
       y_agg_rep <- rbind(y_agg_rep, y_agg)
       sigma2_rep <- rbind(sigma2_rep, sigma2)
       xi_rep <- rbind(xi_rep, xi)
+      theta_rep <- rbind(theta_rep, theta)
     }
     cat(iter, "\r")
   }
   return(list(y = y, y_agg = y_agg, theta = theta,
     y_rep = y_rep, y_agg_rep = y_agg_rep,
-    sigma2_rep = sigma2_rep, xi_rep = xi_rep))
+    sigma2_rep = sigma2_rep, xi_rep = xi_rep,
+    theta_rep = theta_rep))
 }
 
 get_qcew_data <- function(series) {
@@ -182,22 +185,27 @@ plot_series <- function(y, miss) {
 }
 
 
-plot_mcmc_series <- function(y_mcmc, miss, return_table = FALSE) {
+plot_mcmc_series <- function(y_mcmc, miss, theta_mcmc, return_table = FALSE) {
   k <- dim(y_mcmc)[1]
   N <- dim(y_mcmc)[3]
   ## get mean
   y_mean <- apply(y_mcmc, c(1, 3), mean)
+  theta_mean <- apply(theta_mcmc, c(1, 3), mean)
   ## get 95 CI
   y_lower <- apply(y_mcmc, c(1, 3), quantile, probs = 0.025)
   y_upper <- apply(y_mcmc, c(1, 3), quantile, probs = 0.975)
+  theta_lower <- apply(theta_mcmc, c(1, 3), quantile, probs = 0.025)
+  theta_upper <- apply(theta_mcmc, c(1, 3), quantile, probs = 0.975)
   x <- 1:N
   ## par(mfrow = c(3, 1))
   for (j in 1:k) {
     mis_j <- miss[j, ]
     obs_j <- !miss[j, ]
-    ylim_upper <- max(y_mean[j, ], y_upper[j, mis_j])
-    ylim_lower <- min(y_mean[j, ], y_lower[j, mis_j])
-    plot(x, y_mean[j, ], type = "l", ylim = c(ylim_lower, ylim_upper))
+    ylim_upper <- max(y_mean[j, ], y_upper[j, mis_j], theta_upper[j, ])
+    ylim_lower <- min(y_mean[j, ], y_lower[j, mis_j], theta_lower[j, ])
+    plot(x, theta_mean[j, ], type = "l", ylim = c(ylim_lower, ylim_upper))
+    lines(x, theta_lower[j, ], type = "l", col = "red", lty=2)
+    lines(x, theta_upper[j, ], type = "l", col = "red", lty=2)
     points(x[obs_j], y_mean[j, obs_j], col = "black")
     points(x[mis_j], y_mean[j, mis_j], col = "blue", pch = 17, cex = 1)
     arrows(x[mis_j], y_lower[j, mis_j], x[mis_j], y_upper[j, mis_j],
@@ -256,10 +264,12 @@ impute_series <- function(data_list) {
   imputed <- bmmi(num_iter, num_burning, y, y_agg, miss, miss_agg, a, R, tau, kappa, alpha, beta)
   ## plot
   y_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
+  theta_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
   for (j in 1:k) {
     for (i in 1:(num_iter-num_burning)) {
       y_imputed_mcmc[j, i, ] <- imputed$y_rep[((i-1)*k + 1):(i*k), ][j, ]
+      theta_imputed_mcmc[j, i, ] <- imputed$theta_rep[((i-1)*k + 1):(i*k), ][j, ]
     }
   }
-  plot_mcmc_series(y_imputed_mcmc, miss)
+  plot_mcmc_series(y_imputed_mcmc, miss, theta_imputed_mcmc)
 }
