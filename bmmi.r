@@ -9,10 +9,9 @@ pinv <- function(mat) {
   D_mat <- zapsmall(mat_decomp$values)
   D_mat_star_idx <- D_mat > 0
   D_mat_star_inv <- matrix(0, sum(D_mat_star_idx), sum(D_mat_star_idx))
-  diag(D_mat_star_inv) <- zapsmall(1 / D_mat[D_mat_star_idx])
+  diag(D_mat_star_inv) <- 1 / D_mat[D_mat_star_idx]
   P_mat_star <- P_mat[, D_mat_star_idx]
-  mat_pinv <- zapsmall(
-    P_mat_star %*% D_mat_star_inv %*% t(P_mat_star))
+  mat_pinv <- P_mat_star %*% D_mat_star_inv %*% t(P_mat_star)
   return(mat_pinv)
 }
 
@@ -24,10 +23,10 @@ rnorm_singular <- function(Mu, Var) {
   D_Var_star_idx <- D_Var > 0
   D_Var_star_rank <- sum(D_Var_star_idx)
   D_Var_star_sqrt <- matrix(0, D_Var_star_rank, D_Var_star_rank)
-  diag(D_Var_star_sqrt) <- zapsmall(sqrt(D_Var[D_Var_star_idx]))
+  diag(D_Var_star_sqrt) <- sqrt(D_Var[D_Var_star_idx])
   P_Var_star <- P_Var[, D_Var_star_idx]
   u <- mvrnorm(1, rep(0, D_Var_star_rank), diag(D_Var_star_rank))
-  sample <- zapsmall(Mu + P_Var_star %*% D_Var_star_sqrt %*% u)
+  sample <- Mu + P_Var_star %*% D_Var_star_sqrt %*% u
   return(sample)
 }
 
@@ -50,8 +49,6 @@ ytrans_to_y <- function(y_trans, num_years, k) {
 
 bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
                  a, R, tau, kappa, alpha, beta) {
-  op <- options(digits = 7)
-  on.exit(options(op))
   k <- dim(y)[1]
   N <- dim(y)[2]
   num_years <- N / 4
@@ -80,16 +77,14 @@ bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
     for (j in 1:k) {
       ## sample xi
       alpha_star_j <- alpha[j] + (N - 1)/2
-      beta_star_j <-
-        zapsmall(beta[j] +
-                   sum(0.5 * (theta[j, -1] - theta[j, -N])^2 / sigma2[j]))
-      xi[j] <- zapsmall(1/rgamma(1, alpha_star_j, beta_star_j))
+      beta_star_j <- beta[j] +
+        sum(0.5 * (theta[j, -1] - theta[j, -N])^2 / sigma2[j])
+      xi[j] <- 1/rgamma(1, alpha_star_j, beta_star_j)
       ## sample sigma2
       tau_star_j <- tau[j] + (2*N - 1)/2
-      kappa_star_j <-
-        zapsmall(kappa[j] + sum((y[j, ] - theta[j, ])^2) +
-                   sum(0.5 * (theta[j, -1] - theta[j, -N])^2 / xi[j]))
-      sigma2[j] <- zapsmall(1/rgamma(1, tau_star_j, kappa_star_j))
+      kappa_star_j <- kappa[j] + sum((y[j, ] - theta[j, ])^2) +
+        sum(0.5 * (theta[j, -1] - theta[j, -N])^2 / xi[j])
+      sigma2[j] <- 1/rgamma(1, tau_star_j, kappa_star_j)
     }
 
     ## step 3 sample z
@@ -114,13 +109,13 @@ bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
         mu_tm <- mu[t_prime, ][mis_idx]
         ## sample from posterior
         SIGMA_oo_pinv <- pinv(SIGMA[obs_idx, obs_idx])
-        gamma_tm <- zapsmall(
+        gamma_tm <-
           mu_tm + SIGMA[mis_idx, obs_idx] %*% SIGMA_oo_pinv %*%
-            (z[t_prime, ][obs_idx] - mu[t_prime, ][obs_idx]))
-        Omega <- zapsmall(
+          (z[t_prime, ][obs_idx] - mu[t_prime, ][obs_idx])
+        Omega <-
           SIGMA[mis_idx, mis_idx] -
-            SIGMA[mis_idx, obs_idx] %*% SIGMA_oo_pinv %*%
-            SIGMA[obs_idx, mis_idx])
+          SIGMA[mis_idx, obs_idx] %*% SIGMA_oo_pinv %*%
+          SIGMA[obs_idx, mis_idx]
         Omega <- (Omega + t(Omega)) / 2 # solve numerical issue
         z[t_prime, ][mis_idx] <- rnorm_singular(gamma_tm, Omega)
       }
@@ -204,6 +199,7 @@ plot_mcmc_series <- function(y_mcmc, miss, theta_mcmc, return_table = FALSE) {
     ylim_upper <- max(y_mean[j, ], y_upper[j, mis_j], theta_upper[j, ])
     ylim_lower <- min(y_mean[j, ], y_lower[j, mis_j], theta_lower[j, ])
     plot(x, theta_mean[j, ], type = "l", ylim = c(ylim_lower, ylim_upper))
+    abline(h=0)
     lines(x, theta_lower[j, ], type = "l", col = "red", lty=2)
     lines(x, theta_upper[j, ], type = "l", col = "red", lty=2)
     points(x[obs_j], y_mean[j, obs_j], col = "black")
@@ -218,6 +214,7 @@ plot_mcmc_series <- function(y_mcmc, miss, theta_mcmc, return_table = FALSE) {
       y_lower = as.vector(t(y_lower)),
       y_upper = as.vector(t(y_upper)),
       serie_id = rep(seq(1, k), each = N))
+    return(CI_table)
   }
 }
 
@@ -271,5 +268,5 @@ impute_series <- function(data_list) {
       theta_imputed_mcmc[j, i, ] <- imputed$theta_rep[((i-1)*k + 1):(i*k), ][j, ]
     }
   }
-  plot_mcmc_series(y_imputed_mcmc, miss, theta_imputed_mcmc)
+  return(plot_mcmc_series(y_imputed_mcmc, miss, theta_imputed_mcmc, return_table = TRUE))
 }

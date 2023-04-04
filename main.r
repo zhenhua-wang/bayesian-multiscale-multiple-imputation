@@ -67,9 +67,11 @@ plot(1:(num_iter-num_burning), imputed$xi_rep[, 3], xlab = "", ylab = "x1[3]")
 dev.off()
 
 y_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
+theta_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
 for (j in 1:k) {
   for (i in 1:(num_iter-num_burning)) {
     y_imputed_mcmc[j, i, ] <- imputed$y_rep[((i-1)*k + 1):(i*k), ][j, ]
+    theta_imputed_mcmc[j, i, ] <- imputed$theta_rep[((i-1)*k + 1):(i*k), ][j, ]
   }
 }
 
@@ -95,7 +97,7 @@ for (j in 1:k) {
     length = 0.05, angle = 90, code = 3, lty = 2)
 }
 
-y_CI <- plot_mcmc_series(y_imputed_mcmc, miss, TRUE)
+y_CI <- plot_mcmc_series(y_imputed_mcmc, miss, theta_imputed_mcmc, TRUE)
 y_CI$y <- as.vector(t(y_mean))
 y_CI[as.vector(t(!miss)), c("y_mean", "y_lower", "y_upper")] <- NA
 y_CI[y_CI$serie_id == 1, ]
