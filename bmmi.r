@@ -82,7 +82,7 @@ bmmi <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
       xi[j] <- 1/rgamma(1, alpha_star_j, beta_star_j)
       ## sample sigma2
       tau_star_j <- tau[j] + (2*N - 1)/2
-      kappa_star_j <- kappa[j] + 0.5 *sum((y[j, ] - theta[j, ])^2) +
+      kappa_star_j <- kappa[j] + 0.5 * sum((y[j, ] - theta[j, ])^2) +
         0.5 * sum((theta[j, -1] - theta[j, -N])^2 / xi[j])
       sigma2[j] <- 1/rgamma(1, tau_star_j, kappa_star_j)
     }
