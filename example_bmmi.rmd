@@ -1,0 +1,19 @@
+---
+title: BMMI
+author: Zhenhua Wang
+output: pdf_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(Matrix)
+library(MASS)
+library(dlm)
+source("./bmmi.r")
+```
+
+# retail clothes
+```{r message=FALSE, warning=FALSE}
+load("./data/series1")
+data_list <- get_qcew_data(series1)
+impute_series(data_list)
+```

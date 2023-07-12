@@ -1,0 +1,57 @@
+---
+title: BMDP
+author: Zhenhua Wang
+output: pdf_document
+---
+
+1. Generate DP data for each series individually.
+2. Model the noisy series using the following
+
+```{r message=FALSE, warning=FALSE}
+library(Matrix)
+library(MASS)
+library(dlm)
+source("./bmdp.r")
+```
+
+# retail clothes
+```{r message=FALSE, warning=FALSE}
+load("./data/qcew_data")
+data_list <- get_qcew_data(qcew_data)
+```
+
+## add Gaussian noise
+```{r message=FALSE, warning=FALSE}
+epsilon <- 50 / data_list$N
+## delta <- 10e-7
+DELTA <- 10000
+data_list$y_dp <- data_list$y
+## data_list$y_dp[1, ] <- gaussian_mechanism(data_list$y[1, ], epsilon, delta, DELTA)
+## data_list$y_dp[2, ] <- gaussian_mechanism(data_list$y[2, ], epsilon, delta, DELTA)
+## data_list$y_dp[3, ] <- gaussian_mechanism(data_list$y[3, ], epsilon, delta, DELTA)
+data_list$y_dp[1, ] <- laplace_mechanism(data_list$y[1, ], epsilon, DELTA)
+data_list$y_dp[2, ] <- laplace_mechanism(data_list$y[2, ], epsilon, DELTA)
+data_list$y_dp[3, ] <- laplace_mechanism(data_list$y[3, ], epsilon, DELTA)
+```
+
+\newpage
+
+## inference on raw data
+```{r message=FALSE, warning=FALSE}
+release_series(data_list, epsilon, delta, DELTA, 10000, 5000)
+```
+
+\newpage
+
+## inference on DP data
+### No latent state
+```{r message=FALSE, warning=FALSE}
+release_series(data_list, epsilon, delta, DELTA, 10000, 5000, DP = TRUE, hidden = FALSE)
+```
+
+\newpage
+
+### Latent state
+```{r message=FALSE, warning=FALSE}
+release_series(data_list, epsilon, delta, DELTA, 10000, 5000, DP = TRUE, hidden = TRUE)
+```
