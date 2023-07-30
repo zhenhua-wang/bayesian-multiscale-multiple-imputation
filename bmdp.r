@@ -49,44 +49,79 @@ ytrans_to_y <- function(y_trans, num_years, k) {
   return(y)
 }
 
-bmdp <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
+bmdp <- function(num_iter, num_burning, y,
                  a, R, tau, kappa, alpha, beta,
                  epsilon, DELTA, hidden = FALSE) {
   k <- dim(y)[1]
   N <- dim(y)[2]
   num_years <- N / 4
+  b_dp <- DELTA / epsilon
   y_true_rep <- NULL
-  y_agg_rep <- NULL
+  y_true_agg_rep <- NULL
   sigma2_rep <- NULL
   xi_rep <- NULL
   theta_rep <- NULL
+
+  ## intermediate values
+  H <- rbind(
+    diag(k * 4),
+    do.call(cbind, replicate(k, diag(4), simplify=FALSE)),
+    kronecker(diag(k), t(rep(1, 4))))
+  y_trans <- y_to_ytrans(y, num_years, k)
+  y_agg <- matrix(NA, num_years, 4 + k)
+  y_agg <- compute_y_agg_from_y(y, y_agg)
+  z <- cbind(y_trans, y_agg)
 
   ## starting values
   theta <- matrix(0, k, 4*num_years)
   sigma2 <- apply(y, 1, var)
   xi <- replicate(k, 1/rgamma(1, alpha, beta))
-  b_dp <- DELTA / epsilon
   y_true <- y
+  if (hidden) {
+    y_true[1, ] <- laplace_mechanism(y_true[1, ], epsilon, DELTA)
+    y_true[2, ] <- laplace_mechanism(y_true[2, ], epsilon, DELTA)
+    y_true[3, ] <- laplace_mechanism(y_true[3, ], epsilon, DELTA)
+    y_true <- y_true
+  }
+  y_agg_true <- matrix(NA, num_years, 4 + k)
+  y_agg_true <- compute_y_agg_from_y(y_true, y_agg_true)
+  y_true_trans <- y_to_ytrans(y_true, num_years, k)
+  z_true <- cbind(y_true_trans, y_agg_true)
 
   for (iter in 1:num_iter) {
     ## step 1 sample true total value
+    theta_trans <- y_to_ytrans(theta, num_years, k)
+    V <- diag(unlist(lapply(sigma2, rep, times = 4)))
     if (hidden) {
-      for(j in 1:k) {
-        for (t in 1:N) {
-          current_x <- y_true[j, k]
-          proposed_x <- rlaplace(1, current_x, b_dp)
-          log.r <-
-            dnorm(y[j, k], proposed_x, b_dp, log = TRUE) -
-            dnorm(y[j, k], current_x, b_dp, log = TRUE) +
-            dnorm(proposed_x, theta[j, k], sqrt(sigma2[j]), log = TRUE) -
-            dnorm(current_x, theta[j, k], sqrt(sigma2[j]), log = TRUE)
-          if (log(runif(1)) < log.r) {
-            y_true[j, k] <- proposed_x
+      for(year in 1:num_years) {
+        ## sample latent variable x_t'_i
+        x_year <- c()
+        for (i in 1:dim(y_true_trans)[2]) {
+          temp <- abs(2 * (y_trans[year, i] - y_true_trans[year, i]))
+          if (temp == 0) {
+            x_year <- c(x_year, 1 / rgamma(1, 1 / 2, 1 / 8))
           } else {
-            y_true[j, k] <- current_x
+            mu_x <- (b_dp / 2) / temp
+            lambda_x <- 1 / 4
+            x_year <- c(x_year, rinv.gaussian(1, mu_x, lambda_x))
           }
         }
+        ## sample z_t'
+        Q <- pinv(diag(x_year))
+        ## mu <- H %*% theta_trans[year, ]
+        ## SIGMA <- H %*% V %*% t(H)
+        ## Omega_z <- pinv(pinv(Q) + pinv(SIGMA))
+        Omega_z <- pinv(pinv(Q) + pinv(V))
+        Omega_z <- (Omega_z + t(Omega_z)) / 2
+        ## Theta_z <- Omega_z %*% (pinv(Q) %*% z[year, ] + pinv(SIGMA) %*% mu)
+        Theta_z <- Omega_z %*% (pinv(Q) %*% y_trans[year, ] + pinv(V) %*% theta_trans[year, ])
+        y_true_trans[year, ] <- rnorm_singular(Theta_z, Omega_z)
       }
+      ## update y_true and y_agg_true
+      ## y_true <- ytrans_to_y(z_true[, 1:(4*k)], num_years, k)
+      ## y_agg_true <- z_true[, (4*k+1):dim(z_true)[2]]
+      y_true <- ytrans_to_y(y_true_trans, num_years, k)
+      y_agg_true <- compute_y_agg_from_y(y_true, y_agg_true)
     }
 
     ## step 2 sample the latent process
@@ -113,7 +148,7 @@ bmdp <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
 
     if (iter > num_burning) {
       y_true_rep <- rbind(y_true_rep, y_true)
-      y_agg_rep <- rbind(y_agg_rep, y_agg)
+      y_true_agg_rep <- rbind(y_true_agg_rep, y_agg_true)
       sigma2_rep <- rbind(sigma2_rep, sigma2)
       xi_rep <- rbind(xi_rep, xi)
       theta_rep <- rbind(theta_rep, theta)
@@ -121,7 +156,7 @@ bmdp <- function(num_iter, num_burning, y, y_agg, miss, miss_agg,
     cat(iter, "\r")
   }
   return(list(y = y, y_agg = y_agg, theta = theta,
-    y_true_rep = y_true_rep, y_agg_rep = y_agg_rep,
+    y_true_rep = y_true_rep, y_true_agg_rep = y_true_agg_rep,
     sigma2_rep = sigma2_rep, xi_rep = xi_rep,
     theta_rep = theta_rep))
 }
@@ -135,6 +170,33 @@ gaussian_mechanism <- function(z, epsilon, delta, DELTA) {
 laplace_mechanism <- function(z, epsilon, DELTA) {
   b_dp <- DELTA / epsilon
   rlaplace(length(z), z, b_dp)
+}
+
+compute_y_agg_from_y <- function(y, y_agg,
+                                 miss_agg = matrix(1,
+                                   nrow(y_agg),
+                                   ncol(y_agg))) {
+  num_years <- dim(y_agg)[1]
+  k <- dim(y)[1]
+  ## quarterly total
+  for (t in 1:num_years) {
+    for (q in 1:4) {
+      miss_curr <- miss_agg[t, q]
+      if (miss_curr) {
+        y_agg[t, q] <- sum(y[, (t-1)*4 + q])
+      }
+    }
+  }
+  ## annual total
+  for (t in 1:num_years) {
+    for (j in 1:k) {
+      miss_curr <- miss_agg[t, 4+j]
+      if (miss_curr) {
+        y_agg[t, 4+j] <- sum(y[j, ((t-1)*4+1):(t*4)])
+      }
+    }
+  }
+  return(y_agg)
 }
 
 release_series <- function(data_list, epsilon, delta, DELTA, num_iter = 10000, num_burning = 5000, DP = FALSE, hidden = FALSE) {
@@ -178,15 +240,6 @@ release_series <- function(data_list, epsilon, delta, DELTA, num_iter = 10000, n
     }
   }
   ## impute
-  imputed <- bmdp(num_iter, num_burning, y, y_agg, miss, miss_agg, a, R, tau, kappa, alpha, beta, epsilon, DELTA, hidden)
-  ## plot
-  y_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
-  theta_imputed_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
-  for (j in 1:k) {
-    for (i in 1:(num_iter-num_burning)) {
-      y_imputed_mcmc[j, i, ] <- imputed$y_true_rep[((i-1)*k + 1):(i*k), ][j, ]
-      theta_imputed_mcmc[j, i, ] <- imputed$theta_rep[((i-1)*k + 1):(i*k), ][j, ]
-    }
-  }
-  return(plot_mcmc_series(y_imputed_mcmc, miss, theta_imputed_mcmc))
+  imputed <- bmdp(num_iter, num_burning, y, a, R, tau, kappa, alpha, beta, epsilon, DELTA, hidden)
+  return(imputed)
 }
