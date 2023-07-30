@@ -18,13 +18,18 @@ source("./bmdp.r")
 ```{r message=FALSE, warning=FALSE}
 load("./data/qcew_data")
 data_list <- get_qcew_data(qcew_data)
+k <- data_list$k
+N <- data_list$N
+num_years <- N / 4
+num_iter <- 10000
+num_burning <- 5000
 ```
 
 ## add Gaussian noise
 ```{r message=FALSE, warning=FALSE}
-epsilon <- 50 / data_list$N
+epsilon <- 32 / data_list$N
 ## delta <- 10e-7
-DELTA <- 10000
+DELTA <- 10000# 0.1 * max(data_list$y)
 data_list$y_dp <- data_list$y
 ## data_list$y_dp[1, ] <- gaussian_mechanism(data_list$y[1, ], epsilon, delta, DELTA)
 ## data_list$y_dp[2, ] <- gaussian_mechanism(data_list$y[2, ], epsilon, delta, DELTA)
@@ -38,7 +43,7 @@ data_list$y_dp[3, ] <- laplace_mechanism(data_list$y[3, ], epsilon, DELTA)
 
 ## inference on raw data
 ```{r message=FALSE, warning=FALSE}
-release_series(data_list, epsilon, delta, DELTA, 10000, 5000)
+result_raw <- release_series(data_list, epsilon, delta, DELTA, num_iter, num_burning)
 ```
 
 \newpage
@@ -46,12 +51,57 @@ release_series(data_list, epsilon, delta, DELTA, 10000, 5000)
 ## inference on DP data
 ### No latent state
 ```{r message=FALSE, warning=FALSE}
-release_series(data_list, epsilon, delta, DELTA, 10000, 5000, DP = TRUE, hidden = FALSE)
+result_noisy <- release_series(data_list, epsilon, delta, DELTA, num_iter, num_burning, DP = TRUE, hidden = FALSE)
 ```
 
 \newpage
 
 ### Latent state
 ```{r message=FALSE, warning=FALSE}
-release_series(data_list, epsilon, delta, DELTA, 10000, 5000, DP = TRUE, hidden = TRUE)
+source("./bmdp.r")
+result_latent <- release_series(data_list, epsilon, delta, DELTA, num_iter, num_burning, DP = TRUE, hidden = TRUE)
+```
+
+## Plots
+### Quarterly data
+```{r message=FALSE, warning=FALSE}
+y_raw <- data_list$y/1000
+y_noisy <- data_list$y_dp/1000
+y_latent_mcmc <- array(0, dim = c(k, (num_iter-num_burning), N))
+for (j in 1:k) {
+  for (i in 1:(num_iter-num_burning)) {
+    y_latent_mcmc[j, i, ] <- result_latent$y_true_rep[((i-1)*k + 1):(i*k), ][j, ]
+  }
+}
+y_latent_mean <- apply(y_latent_mcmc, c(1, 3), mean)
+for (i in 1:k) {
+  plot(1:N, y_raw[i, ], pch = 0)
+  points(1:N, y_noisy[i, ], col = "red", pch = 1)
+  points(1:N, y_latent_mean[i, ], col = "blue", pch = 2)
+  points(1:N, y_latent_mcmc[i, 5000, ], col = "green", pch = 3)
+  legend(1, max(y_latent_mean[i, ]), legend=c("Original", "DP", "Latent Mean", "Latent Sample"),
+    col = c("black", "red", "blue", "green"), pch = 0:3)
+}
+```
+
+### Aggregate data
+```{r message=FALSE, warning=FALSE}
+y_agg_raw <- data_list$y_agg / 1000
+y_agg_noisy <- matrix(NA, num_years, 4 + k)
+y_agg_noisy <- compute_y_agg_from_y(y_noisy, y_agg_noisy)
+y_agg_latent_mcmc <- array(0, dim = c(num_years, (num_iter-num_burning), (k+4)))
+for (j in 1:num_years) {
+  for (i in 1:(num_iter-num_burning)) {
+    y_agg_latent_mcmc[j, i, ] <- result_latent$y_true_agg_rep[((i-1)*num_years + 1):(i*num_years), ][j, ]
+  }
+}
+y_agg_latent_mean <- apply(y_agg_latent_mcmc, c(1, 3), mean)
+for (year in 1:num_years) {
+  plot(1:(k+4), y_agg_raw[year, ], pch = 0)
+  points(1:(k+4), y_agg_noisy[year, ], col = "red", pch = 1)
+  points(1:(k+4), y_agg_latent_mean[year, ], col = "blue", pch = 2)
+  points(1:(k+4), y_agg_latent_mcmc[year, 5000, ], col = "green", pch = 3)
+  legend(1, max(y_agg_latent_mean[year, ]), legend=c("Original", "DP", "Latent Mean", "Latent Sample"),
+    col = c("black", "red", "blue", "green"), pch = 0:3)
+}
 ```
