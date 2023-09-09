@@ -1,28 +1,31 @@
 library(tidyverse)
 
-qcewGetIndustryData <- function(year, qtr, industry) {
-  url <- "http://data.bls.gov/cew/data/api/YEAR/QTR/industry/INDUSTRY.csv"
-  url <- sub("YEAR", year, url, ignore.case = FALSE)
-  url <- sub("QTR", tolower(qtr), url, ignore.case = FALSE)
-  url <- sub("INDUSTRY", industry, url, ignore.case = FALSE)
-  read.csv(url,
-    header = TRUE,
-    sep = ",", quote = "\"", dec = ".", na.strings = " ", skip = 0
-  )
-}
-
-qcewGetAreaData <- function(year, qtr, area) {
-  url <- "http://data.bls.gov/cew/data/api/YEAR/QTR/area/AREA.csv"
-  url <- sub("YEAR", year, url, ignore.case = FALSE)
-  url <- sub("QTR", tolower(qtr), url, ignore.case = FALSE)
-  url <- sub("AREA", toupper(area), url, ignore.case = FALSE)
-  read.csv(url, header = TRUE,
-    sep = ",", quote = "\"", dec = ".", na.strings = " ", skip = 0)
+qcewGetAreaData <- function(year, area, annual = FALSE) {
+  if (annual) {
+    url <- "https://data.bls.gov/cew/data/files/%s/csv/%s_annual_by_area.zip"
+  } else {
+    url <- "https://data.bls.gov/cew/data/files/%s/csv/%s_qtrly_by_area.zip"
+  }
+  url <- sprintf(url, year, year)
+  save_dir <- file.path(".", "tmp")
+  save_path <- file.path(save_dir, sprintf("%s.zip", year))
+  dir.create(save_dir)
+  download.file(url, destfile = save_path, method = "curl")
+  csv_name <- grep(sprintf(".+%s.+", area), unzip(save_path, list = TRUE)$Name,
+    ignore.case = TRUE, value = TRUE)
+  unzip(save_path, files = csv_name, junkpaths = TRUE, exdir = save_dir)
+  file.remove(save_path)
+  csv_path <- file.path(save_dir, last(strsplit(csv_name, "/")[[1]]))
+  csv <- read.csv(csv_path)
+  file.remove(csv_path)
+  unlink(save_dir, recursive = TRUE)
+  return(csv)
 }
 
 ## load data
-year_list <- 2014:2021
+year_list <- 1990:2022
 quarter_list <- 1:4
+save_dir <- "./data"
 ## area_list <- c(24037, 24015, 24013, 24999)
 a <- 24037
 industry_list <- c(448, 4481, 4482, 4483)
@@ -38,20 +41,18 @@ colnames(qcew_data) <- c("naics", "area",
 qcew_data$naics <- industry_list
 qcew_data$area <- a
 for (y in year_list) {
+  quarter_data <- qcewGetAreaData(y, a, annual = FALSE) %>%
+    filter(industry_code %in% industry_list) %>%
+    select(area_fips, qtr, industry_code, total_qtrly_wages)
   for (q in quarter_list) {
-    quarter_data <- qcewGetAreaData(
-      as.character(y), as.character(q), as.character(a)) %>%
-      filter(industry_code %in% industry_list) %>%
-      select(area_fips, qtr, industry_code, total_qtrly_wages)
     qcew_data[, sprintf("wage%s-%s", y - year_list[1] + 1, q)] <-
-      quarter_data$total_qtrly_wages
+      quarter_data[quarter_data$qtr == q, "total_qtrly_wages"]
   }
-  annual_data <- qcewGetAreaData(
-    as.character(y), "A", as.character(a)) %>%
+  annual_data <- qcewGetAreaData(y, a, annual = TRUE) %>%
     filter(industry_code %in% industry_list) %>%
     select(area_fips, qtr, industry_code, total_annual_wages)
   qcew_data[, sprintf("wage%s-%s", y - year_list[1] + 1, "a")] <-
     annual_data$total_annual_wages
 }
-
-save(qcew_data, file = "./data/qcew_data")
+dir.create(save_dir)
+save(qcew_data, file = file.path(save_dir, "qcew_data"))
