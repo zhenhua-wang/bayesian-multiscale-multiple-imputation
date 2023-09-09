@@ -9,6 +9,7 @@ library(Matrix)
 library(MASS)
 library(dlm)
 source("./bmmi.r")
+source("./bmmi_utils.r")
 ```
 
 # retail clothes

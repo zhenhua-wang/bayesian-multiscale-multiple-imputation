@@ -5,15 +5,18 @@ output: pdf_document
 ---
 
 ```{r message=FALSE, warning=FALSE}
+library(tidyverse)
 library(Matrix)
 library(MASS)
 library(dlm)
 source("./bmmi.r")
+source("./bmmi_utils.r")
 ```
 
 # retail clothes
 ```{r message=FALSE, warning=FALSE}
-load("./data/series1")
-data_list <- get_qcew_data(series1)
+load("./data/qcew_data")
+qcew_data <- qcew_data %>% select_if(~sum(!is.na(.)) > 0)
+data_list <- get_qcew_data(qcew_data)
 impute_series(data_list)
 ```
